@@ -1,0 +1,65 @@
+﻿@model IEnumerable<CarrinhoDeComprasWEB.Models.ItensCarrinhoViewModel>
+<div>
+    <h2>Itens</h2>
+</div>
+<hr />
+<div class="row">
+    <div class="col-md-12">
+        <div>
+            <div class="pull-left">
+                <a asp-action="AdicionarItemCarrinho" class="btn btn-primary">
+                    <span title="Criar Novo Item" class="fas fa-plus"></span> Novo Item
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<br />
+<div class="panel panel-default">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>
+                    @Html.DisplayNameFor(model => model.Produto)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.Quantidade)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.PrecoUnitario)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.PrecoTotal)
+                </th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (ItensCarrinhoViewModel item in Model)
+            {
+                <tr>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.Produto)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.Quantidade)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.PrecoUnitario)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.PrecoTotal)
+                    </td>
+                    <td>
+                        <a asp-action="AtualizarQuantidadeItem" asp-route-id="@item.Id" asp-route-Produto="@item.Produto" asp-route-PrecoUnitario="@item.PrecoUnitario" asp-route-quantidade="@item.Quantidade" asp-route-idCarrinho="@item.IdCarrinho" title="Edita" class="btn btn-warning">
+                            <span class="fas fa-edit"></span>
+                        </a>
+                        <a asp-action="RemoverItemDoCarrinho" asp-route-id="@item.Id" asp-route-Produto="@item.Produto" asp-route-PrecoUnitario="@item.PrecoUnitario", asp-route-Total="@item.PrecoTotal"  asp-route-quantidade="@item.Quantidade" asp-route-idCarrinho="@item.IdCarrinho" title="Remover" class="btn btn-danger">
+                            <span class="fas fa-trash-alt"></span>
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

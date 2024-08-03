@@ -1,0 +1,172 @@
+﻿BEGIN
+    CREATE DATABASE CarrinhoCompras;
+END
+GO
+
+USE CarrinhoCompras;
+GO
+
+IF (SELECT COUNT(1) FROM INFORMATION_SCHEMA.TABLES t WHERE t.TABLE_NAME = 'Carrinhos') = 0
+BEGIN
+CREATE TABLE Carrinhos (
+Id BIGINT PRIMARY KEY IDENTITY,
+TotalItens BIGINT NOT NULL DEFAULT 0,
+ValorTotal DECIMAL(18, 2) NOT NULL DEFAULT 0
+);
+END
+
+GO
+
+IF (SELECT COUNT(1) FROM INFORMATION_SCHEMA.TABLES t WHERE t.TABLE_NAME = 'ItemCarrinho') = 0
+BEGIN
+CREATE TABLE ItemCarrinho (
+Id BIGINT PRIMARY KEY IDENTITY,
+IdCarrinho BIGINT FOREIGN KEY REFERENCES Carrinhos(Id),
+Produto VARCHAR(250) NOT NULL,
+Quantidade BIGINT NOT NULL DEFAULT 0,
+PrecoUnitario DECIMAL(18, 2) NOT NULL DEFAULT 0,
+PrecoTotal DECIMAL(18, 2) NOT NULL DEFAULT 0
+);
+END
+
+GO
+
+IF (EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.VIEW_TABLE_USAGE views WHERE views.VIEW_NAME = 'ViewCarrinhos'))
+BEGIN
+DROP VIEW dbo.ViewCarrinhos
+END
+
+GO
+
+CREATE VIEW  dbo.ViewCarrinhos
+AS
+SELECT
+Carrinho.Id IdCarrinho,
+Carrinho.TotalItens,
+Carrinho.ValorTotal,
+Item.Id IdItem,
+Item.PrecoTotal PrecoTotalItem,
+Item.PrecoUnitario,
+Item.Produto,
+Item.Quantidade
+FROM Carrinhos Carrinho
+INNER JOIN ItemCarrinho Item ON (Item.IdCarrinho = Carrinho.Id)
+GO
+
+IF ((SELECT COUNT(id) FROM dbo.sysobjects a WHERE a.name = 'FN_ObterCarrinho') > 0)
+BEGIN
+DROP FUNCTION dbo.FN_ObterCarrinho
+END
+GO
+
+CREATE FUNCTION dbo.FN_ObterCarrinho(@Id BIGINT)
+RETURNS TABLE
+AS
+RETURN
+(
+SELECT * FROM dbo.ViewCarrinhos Carrinho Where Carrinho.IdCarrinho = @Id
+)
+GO
+
+IF ((SELECT COUNT(Id) FROM dbo.sysobjects a WHERE a.name = 'PC_AdicionarCarrinho') > 0)
+BEGIN
+DROP PROCEDURE dbo.PC_AdicionarCarrinho
+END
+GO
+
+CREATE PROCEDURE dbo.PC_AdicionarCarrinho
+AS
+BEGIN
+INSERT INTO Carrinhos VALUES(0,0)
+SELECT CAST(scope_identity() AS int)
+END
+GO
+
+IF ((SELECT COUNT(Id) FROM dbo.sysobjects a WHERE a.name = 'PC_AdicionarItemCarrinho') > 0)
+BEGIN
+DROP PROCEDURE dbo.PC_AdicionarItemCarrinho
+END
+GO
+
+CREATE PROCEDURE dbo.PC_AdicionarItemCarrinho (@IdCarrinho BIGINT, @Produto VARCHAR(250), @Quantidade BIGINT, @PrecoUnitario DECIMAL(18, 2),@PrecoTotal DECIMAL(18, 2))
+AS
+BEGIN
+
+
+IF(@IdCarrinho IS NULL OR @IdCarrinho = 0)
+EXEC @IdCarrinho = dbo.PC_AdicionarCarrinho
+INSERT INTO ItemCarrinho (IdCarrinho, Produto, Quantidade, PrecoUnitario, PrecoTotal)
+VALUES (@IdCarrinho, @Produto, @Quantidade, @PrecoUnitario, @PrecoTotal);
+
+UPDATE Carrinhos
+SET TotalItens = TotalItens + 1, ValorTotal = ValorTotal + @PrecoTotal
+WHERE Id = @idCarrinho;
+
+SELECT CAST(scope_identity() AS int)
+END
+GO
+
+IF ((SELECT COUNT(Id) FROM dbo.sysobjects a WHERE a.name = 'PC_AtualizarQuantidadeItem') > 0)
+BEGIN
+DROP PROCEDURE dbo.PC_AtualizarQuantidadeItem
+END
+GO
+
+CREATE PROCEDURE dbo.PC_AtualizarQuantidadeItem (@IdCarrinho BIGINT, @IdItemCarrinho BIGINT, @Quantidade BIGINT)
+AS
+
+IF((Select COUNT(Id) FROM dbo.Carrinhos Where Id = @IdCarrinho) = 0)
+	SELECT 'Erro - Carrinho não existe';
+ELSE IF ((Select COUNT(Id) FROM dbo.ItemCarrinho Where Id = @IdItemCarrinho) = 0)
+	SELECT 'Erro - Item não existe';
+ELSE IF ((Select COUNT(Id) FROM dbo.ItemCarrinho Where Id = @IdItemCarrinho AND IdCarrinho = @IdCarrinho) = 0)
+	SELECT 'Erro - Item não pertence a este carrinho';
+ELSE
+BEGIN
+DECLARE @ValorTotal DECIMAL(18, 2)
+UPDATE dbo.ItemCarrinho SET Quantidade = @Quantidade, PrecoTotal = (PrecoTotal * @Quantidade) WHERE Id = @IdItemCarrinho AND IdCarrinho = @IdCarrinho
+SELECT @ValorTotal = COALESCE(SUM(PrecoTotal),0)  FROM dbo.ItemCarrinho NOLOCK WHERE IdCarrinho = @IdCarrinho
+UPDATE dbo.Carrinhos SET ValorTotal = @ValorTotal WHERE Id = @IdCarrinho
+END
+GO
+
+IF ((SELECT COUNT(Id) FROM dbo.sysobjects a WHERE a.name = 'PC_RemoverItem') > 0)
+BEGIN
+DROP PROCEDURE dbo.PC_RemoverItem
+END
+GO
+
+CREATE PROCEDURE dbo.PC_RemoverItem(@IdItemCarrinho BIGINT)
+AS
+
+IF ((Select COUNT(Id) FROM dbo.ItemCarrinho Where Id = @IdItemCarrinho) = 0)
+	SELECT 'Erro - Item não existe';
+ELSE
+BEGIN
+DECLARE @ValorTotal DECIMAL(18, 2)
+DECLARE @IdCarrinho BIGINT = (SELECT TOP 1 IdCarrinho FROM dbo.ItemCarrinho WHERE Id = @IdItemCarrinho)
+
+DELETE FROM dbo.ItemCarrinho WHERE Id = @IdItemCarrinho AND IdCarrinho = @IdCarrinho
+SELECT @ValorTotal = COALESCE(SUM(PrecoTotal),0) FROM dbo.ItemCarrinho NOLOCK WHERE IdCarrinho = @IdCarrinho
+END
+UPDATE dbo.Carrinhos SET ValorTotal = @ValorTotal WHERE Id = @IdCarrinho
+GO
+
+EXEC dbo.PC_AdicionarCarrinho
+EXEC dbo.PC_AdicionarCarrinho
+EXEC dbo.PC_AdicionarCarrinho
+EXEC dbo.PC_AdicionarCarrinho
+EXEC dbo.PC_AdicionarCarrinho
+EXEC dbo.PC_AdicionarCarrinho
+EXEC dbo.PC_AdicionarCarrinho
+
+
+EXEC dbo.PC_AdicionarItemCarrinho 1, 'CHOCOLATE', 1, 10, 10
+EXEC dbo.PC_AdicionarItemCarrinho 1, 'BALA', 1, 25, 25
+
+EXEC dbo.PC_AdicionarItemCarrinho 2, 'CHOCOLATE', 1, 10, 10
+
+
+EXEC dbo.PC_AdicionarItemCarrinho 3, 'BALA', 1, 10, 10
+EXEC dbo.PC_AdicionarItemCarrinho 3, 'BOMBOM', 1, 29, 75
+EXEC dbo.PC_AdicionarItemCarrinho 3, 'CHOCOLATE', 1, 11, 11
